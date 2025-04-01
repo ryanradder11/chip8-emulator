@@ -19,17 +19,31 @@ struct Chip8 {
 };
 
 bool loadROM(const char* filename, Chip8& chip) {
+    // Open the file in binary mode and move the file pointer to the end
     std::ifstream file(filename, std::ios::binary | std::ios::ate);
-    if (!file) return false;
+    if (!file) {
+        // If the file couldn't be opened, return false
+        return false;
+    }
 
+    // Get the size of the file
     std::streamsize size = file.tellg();
+    // Move the file pointer back to the beginning
     file.seekg(0, std::ios::beg);
+
+    // Create a buffer to hold the file contents
     std::vector<char> buffer(size);
+    // Read the file into the buffer
     if (file.read(buffer.data(), size)) {
-        for (size_t i = 0; i < size; ++i)
+        // Copy the buffer into the Chip8 memory starting at address 0x200
+        for (size_t i = 0; i < size; ++i) {
             chip.memory[0x200 + i] = buffer[i];
+        }
+        // Return true if the file was successfully read
         return true;
     }
+
+    // Return false if there was an error reading the file
     return false;
 }
 
@@ -63,3 +77,4 @@ int main(int argc, char* argv[]) {
 
     return 0;
 }
+
