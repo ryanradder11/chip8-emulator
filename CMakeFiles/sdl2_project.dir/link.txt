@@ -1,0 +1,1 @@
+/usr/bin/c++  -arch x86_64 -Wl,-search_paths_first -Wl,-headerpad_max_install_names CMakeFiles/sdl2_project.dir/main.cpp.o -o sdl2_project   -L/usr/local/Cellar/sdl2/2.32.4/lib  -Wl,-rpath,/usr/local/Cellar/sdl2/2.32.4/lib /usr/local/Cellar/sdl2/2.32.4/lib/libSDL2.dylib

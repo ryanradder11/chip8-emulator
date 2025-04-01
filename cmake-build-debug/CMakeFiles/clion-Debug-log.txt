@@ -1,0 +1,7 @@
+/Applications/CLion.app/Contents/bin/cmake/mac/aarch64/bin/cmake -DCMAKE_BUILD_TYPE=Debug -DCMAKE_MAKE_PROGRAM=/Applications/CLion.app/Contents/bin/ninja/mac/aarch64/ninja -G Ninja -S /Users/ryanradder/CLionProjects/untitled -B /Users/ryanradder/CLionProjects/untitled/cmake-build-debug
+CMake Error at CMakeLists.txt:11 (target_link_libraries):
+  Cannot specify link libraries for target "sdl2_project" which is not built
+  by this project.
+
+
+-- Configuring incomplete, errors occurred!
