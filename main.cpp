@@ -104,17 +104,58 @@ void emulateCycle(Chip8 &chip) {
     // 2. Decode and execute
     switch (opcode & 0xF000) {
         case 0x0000:
-            if (opcode == 0x00E0) {
-                // Clear screen
-                memset(chip.gfx, 0, sizeof(chip.gfx));
-                chip.drawFlag = true;
-                chip.pc += 2;
-            }
+
+            // Clear screen
+            memset(chip.gfx, 0, sizeof(chip.gfx));
+            chip.drawFlag = true;
+            chip.pc += 2;
+
+
         std::cout << "Clear screen" << std::endl;
         break;
         case 0x1000:
             chip.pc = opcode & 0x0FFF; // Jump to address NNN
             std::cout << "Jump to address: " << std::hex << chip.pc << std::endl;
+        break;
+        case 0x2000:
+            // 2NNN: Call subroutine at NNN
+        {
+            uint16_t address = opcode & 0x0FFF;
+            chip.stack[chip.sp] = chip.pc; // Store current PC in the stack
+            chip.sp++; // Increment stack pointer
+            chip.pc = address; // Set PC to the address
+            std::cout << "Call subroutine at address: " << std::hex << address << std::endl;
+        }
+        break;
+        case 0x0300:
+            // 3XNN: Skip next instruction if Vx == NN
+        {
+            uint8_t x = (opcode & 0x0F00) >> 8;
+            uint8_t nn = opcode & 0x00FF;
+            std::cout << "3XNN: Checking if V[" << (int)x << "] == " << (int)nn << " (V[" << (int)x << "] = " << (int)chip.V[x] << ")\n";
+            if (chip.V[x] == nn) {
+                std::cout << "Condition true: skipping next instruction.\n";
+                chip.pc += 4;
+            } else {
+                std::cout << "Condition false: proceeding to next instruction.\n";
+                chip.pc += 2;
+            }
+        }
+        break;
+        case 0x4000:
+            // 4XNN: Skip next instruction if Vx != NN
+        {
+            uint8_t x = (opcode & 0x0F00) >> 8;
+            uint8_t nn = opcode & 0x00FF;
+            std::cout << "4XNN: Checking if V[" << (int)x << "] != " << (int)nn << " (V[" << (int)x << "] = " << (int)chip.V[x] << ")\n";
+            if (chip.V[x] != nn) {
+                std::cout << "Condition true: skipping next instruction.\n";
+                chip.pc += 4;
+            } else {
+                std::cout << "Condition false: proceeding to next instruction.\n";
+                chip.pc += 2;
+            }
+        }
         break;
         case 0x6000:
             // 6XNN: Set Vx = NN
@@ -140,6 +181,7 @@ void emulateCycle(Chip8 &chip) {
             // ANNN: Set I = NNN
                 chip.I = opcode & 0x0FFF;
         chip.pc += 2;
+        std::cout << "Set I = " << std::hex << chip.I << std::endl;
         break;
 
         case 0xD000:
@@ -193,6 +235,29 @@ void emulateCycle(Chip8 &chip) {
         }
         std::cout << "Skip next instruction if key with value of V" << (int)((opcode & 0x0F00) >> 8) << " is pressed" << std::endl;
         std::cout << "VX value: " << (int)chip.V[(opcode & 0x0F00) >> 8] << std::endl;
+        break;
+        case 0xF000:
+            switch (opcode & 0x00FF) {
+                case 0x0018:
+                    // FX18: Set sound timer = Vx
+                {
+                    uint8_t x = (opcode & 0x0F00) >> 8;
+                    chip.sound_timer = chip.V[x];
+                    chip.pc += 2;
+                    std::cout << "Set sound timer = V" << (int)x << std::endl;
+                }
+                break;
+                case 0x0015: {
+                    uint8_t x = (opcode & 0x0F00) >> 8;
+                    chip.delay_timer = chip.V[x];
+                    chip.pc += 2;
+                    std::cout << "Set delay timer = V" << (int)x << std::endl;
+                }
+                // Add other 0xF000 opcodes here...
+                default:
+                    std::cerr << "Unknown opcode: " << std::hex << opcode << std::endl;
+                break;
+            }
         break;
         // Add more ...
         default:
@@ -250,13 +315,19 @@ int main(int argc, char* argv[]) {
     SDL_Event e;
     uint32_t lastTimerUpdate = SDL_GetTicks();
 
+    //Dump memory for debugging
+    for (int i = 0; i < 100; ++i) {
+        uint16_t addr = 0x200 + (i * 2);
+        uint16_t op = (chip.memory[addr] << 8) | chip.memory[addr + 1];
+        std::cout << "0x" << std::hex << addr << ": " << std::hex << op << std::endl;
+    }
+
     while (!quit) {
         // 1. Process input
-
-            processInput(chip, quit);
+        processInput(chip, quit);
 
         // 2. Emulate N cycles per frame
-        for (int i = 0; i < 10; ++i) {
+        for (int i = 0; i < 1; ++i) {
             emulateCycle(chip);
         }
 
@@ -277,7 +348,8 @@ int main(int argc, char* argv[]) {
             chip.drawFlag = false;
         }
 
-        SDL_Delay(330); // Fine-tune delay for control
+        SDL_Delay(300); // Fine-tune delay for control
+        std::cout << "======= end tick =======\n";
     }
 
     SDL_DestroyWindow(win);
