@@ -127,7 +127,7 @@ void emulateCycle(Chip8 &chip) {
             std::cout << "Call subroutine at address: " << std::hex << address << std::endl;
         }
         break;
-        case 0x0300:
+        case 0x3000:
             // 3XNN: Skip next instruction if Vx == NN
         {
             uint8_t x = (opcode & 0x0F00) >> 8;
@@ -157,6 +157,24 @@ void emulateCycle(Chip8 &chip) {
             }
         }
         break;
+        case 0x5000:
+            // 5XY0: Skip next instruction if VX == VY
+                if ((opcode & 0x000F) == 0x0000) {
+                    uint8_t x = (opcode & 0x0F00) >> 8;
+                    uint8_t y = (opcode & 0x00F0) >> 4;
+                    std::cout << "5XY0: Checking if V[" << (int)x << "] == V[" << (int)y << "] ("
+                              << (int)chip.V[x] << " == " << (int)chip.V[y] << ")" << std::endl;
+
+                    if (chip.V[x] == chip.V[y]) {
+                        chip.pc += 4;
+                    } else {
+                        chip.pc += 2;
+                    }
+                } else {
+                    std::cerr << "Unknown 0x5000 opcode variant: " << std::hex << opcode << std::endl;
+                    chip.pc += 2;
+                }
+        break;
         case 0x6000:
             // 6XNN: Set Vx = NN
         {
@@ -177,13 +195,33 @@ void emulateCycle(Chip8 &chip) {
         }
         std::cout << "Add " << (int)(opcode & 0x00FF) << " to V" << (int)((opcode & 0x0F00) >> 8) << std::endl;
         break;
+        case 0x9000:
+            // 9XY0: Skip next instruction if Vx != Vy
+                if ((opcode & 0x000F) == 0x0000) {
+                    uint8_t x = (opcode & 0x0F00) >> 8;
+                    uint8_t y = (opcode & 0x00F0) >> 4;
+                    std::cout << "9XY0: Checking if V[" << (int)x << "] != V[" << (int)y << "] ("
+                              << (int)chip.V[x] << " != " << (int)chip.V[y] << ")" << std::endl;
+                    if (chip.V[x] != chip.V[y]) {
+                        chip.pc += 4;
+                    } else {
+                        chip.pc += 2;
+                    }
+                } else {
+                    std::cerr << "Unknown 0x9000 opcode: " << std::hex << opcode << std::endl;
+                    chip.pc += 2;
+                }
+        break;
         case 0xA000:
             // ANNN: Set I = NNN
                 chip.I = opcode & 0x0FFF;
         chip.pc += 2;
         std::cout << "Set I = " << std::hex << chip.I << std::endl;
         break;
-
+        case 0xB000:
+            chip.pc = opcode & 0x0FFF + chip.V[0];
+            std::cout << "Set PC= " << std::hex << chip.pc << std::endl;
+        break;
         case 0xD000:
             // DXYN: Draw sprite at (Vx, Vy) with width 8 pixels and height N pixels
         {
@@ -248,11 +286,19 @@ void emulateCycle(Chip8 &chip) {
                 }
                 break;
                 case 0x0015: {
+                // FX15 set delay timer = Vx
                     uint8_t x = (opcode & 0x0F00) >> 8;
                     chip.delay_timer = chip.V[x];
                     chip.pc += 2;
                     std::cout << "Set delay timer = V" << (int)x << std::endl;
                 }
+                break;
+                case 0x0080:
+                    //TODO
+                    // FF80: Custom opcode - treat as NOP or marker
+                        std::cout << "Custom opcode FF80 encountered. (Possible sprite data marker?)" << std::endl;
+                chip.pc += 2;
+                break;
                 // Add other 0xF000 opcodes here...
                 default:
                     std::cerr << "Unknown opcode: " << std::hex << opcode << std::endl;
@@ -310,13 +356,13 @@ int main(int argc, char* argv[]) {
     }
     Chip8 chip;
     chip.pc = 0x200; // Start of most CHIP-8 programs
-    loadROM("roms/tron.ch8", chip); // Replace with your ROM path
+    loadROM("roms/test_opcode.ch8", chip); // Replace with your ROM path
     bool quit = false;
     SDL_Event e;
     uint32_t lastTimerUpdate = SDL_GetTicks();
 
     //Dump memory for debugging
-    for (int i = 0; i < 100; ++i) {
+    for (int i = 0; i < 1000; ++i) {
         uint16_t addr = 0x200 + (i * 2);
         uint16_t op = (chip.memory[addr] << 8) | chip.memory[addr + 1];
         std::cout << "0x" << std::hex << addr << ": " << std::hex << op << std::endl;
