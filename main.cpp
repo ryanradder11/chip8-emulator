@@ -50,6 +50,17 @@ bool loadROM(const char* filename, Chip8& chip) {
     return false;
 }
 
+void printGFX(const Chip8& chip) {
+    std::cout << "\n===== DISPLAY BUFFER =====\n";
+    for (int y = 0; y < 32; ++y) {
+        for (int x = 0; x < 64; ++x) {
+            std::cout << (chip.gfx[y * 64 + x] ? "█" : " ");
+        }
+        std::cout << "\n";
+    }
+    std::cout << "==========================\n";
+}
+
 // Function to process input events
 void processInput(Chip8& chip, bool& quit) {
     SDL_Event event;
@@ -391,6 +402,7 @@ int main(int argc, char* argv[]) {
         // 4. Draw if needed
         if (chip.drawFlag) {
             drawDisplay(renderer, chip.gfx);
+            printGFX(chip);
             chip.drawFlag = false;
         }
 
