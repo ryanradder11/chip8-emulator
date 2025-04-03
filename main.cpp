@@ -206,6 +206,24 @@ void emulateCycle(Chip8 &chip) {
         }
         std::cout << "Add " << (int)(opcode & 0x00FF) << " to V" << (int)((opcode & 0x0F00) >> 8) << std::endl;
         break;
+        case 0x8000: {
+            uint8_t x = (opcode & 0x0F00) >> 8;
+            uint8_t y = (opcode & 0x00F0) >> 4;
+            switch (opcode & 0x000F) {
+                case 0x0: {
+                    //8XY0	LD VX, VY Copy the value in register VY into VX
+                    chip.V[x] = chip.V[y];
+                    chip.pc += 2;
+                    std::cout << "Set V[" << (int)x << "] = V[" << (int)y << "] (" << (int)chip.V[y] << ")\n";
+                    break;
+                }
+                default:
+                    std::cerr << "Unknown 8XY opcode: " << std::hex << opcode << std::endl;
+                chip.pc += 2;
+                break;
+            }
+        }
+        break;
         case 0x9000:
             // 9XY0: Skip next instruction if Vx != Vy
                 if ((opcode & 0x000F) == 0x0000) {
@@ -367,7 +385,7 @@ int main(int argc, char* argv[]) {
     }
     Chip8 chip;
     chip.pc = 0x200; // Start of most CHIP-8 programs
-    loadROM("roms/test_opcode.ch8", chip); // Replace with your ROM path
+    loadROM("roms/3-corax+.ch8", chip); // Replace with your ROM path
     bool quit = false;
     SDL_Event e;
     uint32_t lastTimerUpdate = SDL_GetTicks();
@@ -402,8 +420,10 @@ int main(int argc, char* argv[]) {
         // 4. Draw if needed
         if (chip.drawFlag) {
             drawDisplay(renderer, chip.gfx);
-            printGFX(chip);
             chip.drawFlag = false;
+
+            // print GFX in terminal for debugging purpose
+            // printGFX(chip);
         }
 
         SDL_Delay(300); // Fine-tune delay for control
