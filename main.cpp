@@ -439,7 +439,6 @@ void emulateCycle(Chip8 &chip) {
                 break;
                 // Convert that word to BCD and store the 3 digits at memory location I through I+2. I does not change.
                 case 0x33: {
-                    //TODO wrong
                     uint8_t value = chip.V[x];
                     chip.memory[chip.I]     = value / 100;
                     chip.memory[chip.I + 1] = (value / 10) % 10;
@@ -452,7 +451,6 @@ void emulateCycle(Chip8 &chip) {
                 break;
                 // Store registers V0 through Vx in memory starting at address I.
                 case 0x0055: {
-                    //TODO wrong
                     for (int i = 0; i <= x; ++i) {
                         chip.memory[chip.I + i] = chip.V[i];
                     }
@@ -464,7 +462,6 @@ void emulateCycle(Chip8 &chip) {
                 break;
                 // Copy values from memory location I through I + X into registers V0 through VX. I does not change.
                 case 0x0065: {
-                    //TODo wrong
                     for (int i = 0; i <= x; i++) {
                         chip.V[i] = chip.memory[chip.I + i];
                     }
