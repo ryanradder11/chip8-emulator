@@ -122,15 +122,31 @@ void emulateCycle(Chip8 &chip) {
 
     // 2. Decode and execute
     switch (opcode & 0xF000) {
-        case 0x0000:
-
-            // Clear screen
-            memset(chip.gfx, 0, sizeof(chip.gfx));
-            chip.drawFlag = true;
-            chip.pc += 2;
-
-
-        std::cout << "Clear screen" << std::endl;
+        case 0x0000: {
+            switch (opcode & 0x00FF) {
+                case 0xE0: {
+                    // 00E0 - Clear screen
+                    memset(chip.gfx, 0, sizeof(chip.gfx));
+                    chip.drawFlag = true;
+                    chip.pc += 2;
+                    std::cout << "Clear screen\n";
+                    break;
+                }
+                case 0xEE: {
+                    // 00EE - Return from subroutine
+                    chip.sp--;
+                    chip.pc = chip.stack[chip.sp];
+                    chip.pc += 2;
+                    std::cout << "Return from subroutine to 0x" << std::hex << chip.pc << "\n";
+                    break;
+                }
+                default: {
+                    std::cout << "Unknown 0x0000 opcode: " << std::hex << opcode << "\n";
+                    break;
+                }
+            }
+            break;
+        }
         break;
         case 0x1000:
             chip.pc = opcode & 0x0FFF; // Jump to address NNN
@@ -271,9 +287,9 @@ void emulateCycle(Chip8 &chip) {
                     chip.V[0xF] = chip.V[x] & 0x1;
                     chip.V[x] = chip.V[x] >> 1;
                     chip.pc += 2;
-
                     std::cout << "Shift V[" << (int)x << "] right by 1. VF = " << (int)chip.V[0xF] << "\n";
                 }
+                break;
                 //Set VX equal to VY minus VX. VF is set to 1 if VY > VX. Otherwise 0.
                 case 0x7: {
                     chip.V[0xF] = chip.V[y] > chip.V[x] ? 1 : 0;
@@ -290,43 +306,59 @@ void emulateCycle(Chip8 &chip) {
                     chip.V[0xF] = mostSignificantBit;
                     chip.V[x] = (chip.V[x] << 1) & 0xFF;
                     chip.pc += 2;
-
                     std::cout << "Shift V[" << (int)x << "] left by 1. VF = " << (int)chip.V[0xF] << "\n";
                 }
                 break;
                 default:
                     std::cerr << "Unknown 8XY opcode: " << std::hex << opcode << std::endl;
-                chip.pc += 2;
+                    chip.pc += 2;
                 break;
             }
         }
         break;
         case 0x9000:
             // 9XY0: Skip next instruction if Vx != Vy
-                if ((opcode & 0x000F) == 0x0000) {
-                    uint8_t x = (opcode & 0x0F00) >> 8;
-                    uint8_t y = (opcode & 0x00F0) >> 4;
-                    std::cout << "9XY0: Checking if V[" << (int)x << "] != V[" << (int)y << "] ("
-                              << (int)chip.V[x] << " != " << (int)chip.V[y] << ")" << std::endl;
-                    if (chip.V[x] != chip.V[y]) {
-                        chip.pc += 4;
-                    } else {
-                        chip.pc += 2;
-                    }
+            if ((opcode & 0x000F) == 0x0000) {
+                uint8_t x = (opcode & 0x0F00) >> 8;
+                uint8_t y = (opcode & 0x00F0) >> 4;
+                std::cout << "9XY0: Checking if V[" << (int) x << "] != V[" << (int) y << "] ("
+                        << (int) chip.V[x] << " != " << (int) chip.V[y] << ")" << std::endl;
+                if (chip.V[x] != chip.V[y]) {
+                    chip.pc += 4;
                 } else {
-                    std::cerr << "Unknown 0x9000 opcode: " << std::hex << opcode << std::endl;
                     chip.pc += 2;
                 }
-        break;
+            } else {
+                std::cerr << "Unknown 0x9000 opcode: " << std::hex << opcode << std::endl;
+                chip.pc += 2;
+            }
+            break;
+        // Set I equal to NNN.
         case 0xA000:
-            // ANNN: Set I = NNN
-                chip.I = opcode & 0x0FFF;
-        chip.pc += 2;
-        std::cout << "Set I = " << std::hex << chip.I << std::endl;
-        break;
+            chip.I = opcode & 0x0FFF;
+            chip.pc += 2;
+            std::cout << "Set I = " << std::hex << chip.I << std::endl;
+            break;
+        // Set the PC to NNN plus the value in V0.
         case 0xB000:
             chip.pc = opcode & 0x0FFF + chip.V[0];
             std::cout << "Set PC= " << std::hex << chip.pc << std::endl;
+            break;
+        // Set VX equal to a random number ranging from 0 to 255 which is logically anded with NN.
+        case 0xC000: {
+            uint8_t x = (opcode & 0x0F00) >> 8;
+            uint8_t nn = opcode & 0x00FF;
+            uint8_t rnd = rand() % 256;
+            chip.V[x] = rnd & nn;
+            chip.pc += 2;
+            std::cout << "Set V[" << (int)x << "] = rand() & 0x"
+                      << std::hex << (int)nn << " => " << std::dec
+                      << (int)chip.V[x] << "\n";
+            break;
+
+            std::cout << "Set V[" << (int)x << "] = rand() & 0x" << std::hex
+                      << (opcode & 0x00FF) << " => " << std::dec << (int)chip.V[x] << "\n";
+        }
         break;
         case 0xD000:
             // DXYN: Draw sprite at (Vx, Vy) with width 8 pixels and height N pixels
@@ -380,29 +412,82 @@ void emulateCycle(Chip8 &chip) {
         std::cout << "Skip next instruction if key with value of V" << (int)((opcode & 0x0F00) >> 8) << " is pressed" << std::endl;
         std::cout << "VX value: " << (int)chip.V[(opcode & 0x0F00) >> 8] << std::endl;
         break;
-        case 0xF000:
+        case 0xF000: {
+            uint8_t x = (opcode & 0x0F00) >> 8;
             switch (opcode & 0x00FF) {
+                // Set VX equal to the delay timer.
+                case 0x07: {
+                    chip.V[x] = chip.delay_timer;
+                    chip.pc += 2;
+                    std::cout << "Set V[" << (int)x << "] = delay_timer (" << (int)chip.delay_timer << ")\n";
+                }
+                break;
+                // FX18: Set sound timer = Vx
                 case 0x0018:
-                    // FX18: Set sound timer = Vx
                 {
-                    uint8_t x = (opcode & 0x0F00) >> 8;
                     chip.sound_timer = chip.V[x];
                     chip.pc += 2;
                     std::cout << "Set sound timer = V" << (int)x << std::endl;
                 }
                 break;
-                case 0x0015: {
                 // FX15 set delay timer = Vx
-                    uint8_t x = (opcode & 0x0F00) >> 8;
+                case 0x0015: {
                     chip.delay_timer = chip.V[x];
                     chip.pc += 2;
                     std::cout << "Set delay timer = V" << (int)x << std::endl;
                 }
                 break;
+                // Convert that word to BCD and store the 3 digits at memory location I through I+2. I does not change.
+                case 0x33: {
+                    //TODO wrong
+                    uint8_t value = chip.V[x];
+                    chip.memory[chip.I]     = value / 100;
+                    chip.memory[chip.I + 1] = (value / 10) % 10;
+                    chip.memory[chip.I + 2] = value % 10;
+                    chip.pc += 2;
+
+                    std::cout << "Stored BCD of V[" << (int)x << "] (" << (int)value
+                              << ") into memory at I, I+1, and I+2\n";
+                }
+                break;
+                // Store registers V0 through Vx in memory starting at address I.
+                case 0x0055: {
+                    //TODO wrong
+                    for (int i = 0; i <= x; ++i) {
+                        chip.memory[chip.I + i] = chip.V[i];
+                    }
+                    chip.pc += 2;
+
+                    std::cout << "Stored V[0] to V[" << (int)x << "] into memory starting at I (0x"
+                              << std::hex << chip.I << ")\n";
+                }
+                break;
+                // Copy values from memory location I through I + X into registers V0 through VX. I does not change.
+                case 0x0065: {
+                    //TODo wrong
+                    for (int i = 0; i <= x; i++) {
+                        chip.V[i] = chip.memory[chip.I + i];
+                    }
+                    chip.pc += 2;
+                    std::cout << "Read V[0] to V[" << (int) x << "] from memory starting at I (0x"
+                            << std::hex << chip.I << ")\n";
+                }
+                break;
+                // Add VX to I. VF is set to 1 if I > 0x0FFF. Otherwise set to 0.
+                case 0x1E: {
+                    uint16_t sum = chip.I + chip.V[x];
+                    chip.V[0xF] = (sum > 0x0FFF) ? 1 : 0;
+                    chip.I = sum & 0x0FFF;
+                    chip.pc += 2;
+
+                    std::cout << "Add V[" << (int)x << "] (" << (int)chip.V[x] << ") to I. VF = "
+                              << (int)chip.V[0xF] << ", New I = 0x" << std::hex << chip.I << "\n";
+                }
+                break;
                 case 0x0080:
                     //TODO
-                    // FF80: Custom opcode - treat as NOP or marker
-                        std::cout << "Custom opcode FF80 encountered. (Possible sprite data marker?)" << std::endl;
+                        // FF80: Custom opcode - treat as NOP or marker
+                            std::cout << "Custom opcode FF80 encountered. (Possible sprite data marker?)" << std::endl;
                 chip.pc += 2;
                 break;
                 // Add other 0xF000 opcodes here...
@@ -410,6 +495,7 @@ void emulateCycle(Chip8 &chip) {
                     std::cerr << "Unknown opcode: " << std::hex << opcode << std::endl;
                 break;
             }
+        }
         break;
         // Add more ...
         default:
@@ -499,7 +585,7 @@ int main(int argc, char* argv[]) {
             // printGFX(chip);
         }
 
-        SDL_Delay(300); // Fine-tune delay for control
+        SDL_Delay(10); // Fine-tune delay for control
         std::cout << "======= end tick =======\n";
     }
 
