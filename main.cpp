@@ -61,6 +61,14 @@ void printGFX(const Chip8& chip) {
     std::cout << "==========================\n";
 }
 
+void printRom(const Chip8& chip) {
+    for (int i = 0; i < 1000; ++i) {
+        uint16_t addr = 0x200 + (i * 2);
+        uint16_t op = (chip.memory[addr] << 8) | chip.memory[addr + 1];
+        std::cout << "0x" << std::hex << addr << ": " << std::hex << op << std::endl;
+    }
+}
+
 // Function to process input events
 void processInput(Chip8& chip, bool& quit) {
     SDL_Event event;
@@ -207,6 +215,7 @@ void emulateCycle(Chip8 &chip) {
         std::cout << "Add " << (int)(opcode & 0x00FF) << " to V" << (int)((opcode & 0x0F00) >> 8) << std::endl;
         break;
         case 0x8000: {
+            //all 0x8000 opcodes share the same X,Y
             uint8_t x = (opcode & 0x0F00) >> 8;
             uint8_t y = (opcode & 0x00F0) >> 4;
             switch (opcode & 0x000F) {
@@ -217,6 +226,74 @@ void emulateCycle(Chip8 &chip) {
                     std::cout << "Set V[" << (int)x << "] = V[" << (int)y << "] (" << (int)chip.V[y] << ")\n";
                     break;
                 }
+                // 8XY1 - Sets VX to (VX OR VY).
+                case 0x1: {
+                    chip.V[x] |= chip.V[y];
+                    chip.pc += 2;
+                    std::cout << "Set V[" << (int)x << "] (OR)|= V[" << (int)y << "] (" << (int)chip.V[y] << ")\n";
+                }
+                break;
+                // Set VX equal to the bitwise and of the values in VX and VY.
+                case 0x2: {
+                    chip.V[x] = chip.V[x] & chip.V[y];
+                    chip.pc += 2;
+                    std::cout <<"Set V[" << (int)x << "] &= V[" << (int)y << "] (" << (int)chip.V[y] << ")\n";
+                }
+                break;
+                // Set VX equal to the bitwise xor of the values in VX and VY
+                case 0x3: {
+                    chip.V[x] = chip.V[x] ^ chip.V[y];
+                    chip.pc += 2;
+                    std::cout <<"Set V[" << (int)x << "] (XOR)^= V[" << (int)y << "] (" << (int)chip.V[y] << ")\n";
+                }
+                // Set VX equal to VX plus VY. In the case of an overflow(carry) VF is set to 1. Otherwise 0.
+                case 0x4: {
+                    chip.V[x] = (chip.V[x] + chip.V[y]) &0xff;
+                    if (chip.V[y] > chip.V[x]) {
+                        chip.V[0xf] = 1;
+                    }else {
+                        chip.V[0xf] = 0;
+                    }
+                    chip.pc += 2;
+                }
+                    std::cout << "Set V[" << (int) x << "] += V[" << (int) y << "] (" << (int) chip.V[y] <<
+                            "), with carry\n";
+                break;
+                // Set VX equal to VX minus VY. In the case of an underflow VF is set 0. Otherwise 1. (VF = VX > VY)
+                case 0x5: {
+                    chip.V[0xF] = (chip.V[x] >= chip.V[y]) ? 1 : 0;
+                    chip.V[x] = (chip.V[x] - chip.V[y]) & 0xFF;
+                    chip.pc += 2;
+                    std::cout << "Set V[" << (int)x << "] -= V[" << (int)y << "] (" << (int)chip.V[y] << "), with borrow flag\n";
+                }
+                //Set VX equal to VX bitshifted right 1. VF is set to the least significant bit of VX prior to the shift.
+                case 0x6: {
+                    chip.V[0xF] = chip.V[x] & 0x1;
+                    chip.V[x] = chip.V[x] >> 1;
+                    chip.pc += 2;
+
+                    std::cout << "Shift V[" << (int)x << "] right by 1. VF = " << (int)chip.V[0xF] << "\n";
+                }
+                //Set VX equal to VY minus VX. VF is set to 1 if VY > VX. Otherwise 0.
+                case 0x7: {
+                    chip.V[0xF] = chip.V[y] > chip.V[x] ? 1 : 0;
+                    chip.V[x] = chip.V[y] - chip.V[x] & 0xFF;
+                    chip.pc += 2;
+                    std::cout << "Set V[" << (int)x << "] = V[" << (int)y << "] - V[" << (int)x << "] ("
+                            << (int) chip.V[y] << " - " << (int) chip.V[x] << "), VF = "
+                            << (int) chip.V[0xF] << "\n";
+                }
+                break;
+                // Set VX equal to VX bitshifted left 1. VF is set to the most significant bit of VX prior to the shift
+                case 0xe: {
+                    uint8_t mostSignificantBit = (chip.V[x] & 0x80) ? 1 : 0;
+                    chip.V[0xF] = mostSignificantBit;
+                    chip.V[x] = (chip.V[x] << 1) & 0xFF;
+                    chip.pc += 2;
+
+                    std::cout << "Shift V[" << (int)x << "] left by 1. VF = " << (int)chip.V[0xF] << "\n";
+                }
+                break;
                 default:
                     std::cerr << "Unknown 8XY opcode: " << std::hex << opcode << std::endl;
                 chip.pc += 2;
@@ -390,12 +467,8 @@ int main(int argc, char* argv[]) {
     SDL_Event e;
     uint32_t lastTimerUpdate = SDL_GetTicks();
 
-    //Dump memory for debugging
-    for (int i = 0; i < 1000; ++i) {
-        uint16_t addr = 0x200 + (i * 2);
-        uint16_t op = (chip.memory[addr] << 8) | chip.memory[addr + 1];
-        std::cout << "0x" << std::hex << addr << ": " << std::hex << op << std::endl;
-    }
+    //Dump ROM memory for debugging
+    // printRom(chip);
 
     while (!quit) {
         // 1. Process input
