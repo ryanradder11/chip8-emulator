@@ -3,6 +3,8 @@
 #include <vector>
 #include <SDL2/SDL.h>
 
+bool debug = false;
+
 struct Chip8 {
     bool drawFlag; // Set to true if the screen needs to be redrawn
     uint8_t memory[4096];
@@ -110,6 +112,9 @@ void processInput(Chip8& chip, bool& quit) {
 void emulateCycle(Chip8 &chip) {
     // 1. Fetch opcode
     uint16_t opcode = chip.memory[chip.pc] << 8 | chip.memory[chip.pc + 1];
+
+    if (debug) {
+
     // Print the opcode in hexadecimal format
     std::cout << "Opcode (hex): " << std::hex << opcode << std::endl;
 
@@ -119,6 +124,7 @@ void emulateCycle(Chip8 &chip) {
         std::cout << ((opcode >> i) & 1);
     }
     std::cout << std::endl;
+    }
 
     // 2. Decode and execute
     switch (opcode & 0xF000) {
@@ -129,7 +135,7 @@ void emulateCycle(Chip8 &chip) {
                     memset(chip.gfx, 0, sizeof(chip.gfx));
                     chip.drawFlag = true;
                     chip.pc += 2;
-                    std::cout << "Clear screen\n";
+                    if (debug) std::cout << "Clear screen\n";
                     break;
                 }
                 case 0xEE: {
@@ -137,7 +143,7 @@ void emulateCycle(Chip8 &chip) {
                     chip.sp--;
                     chip.pc = chip.stack[chip.sp];
                     chip.pc += 2;
-                    std::cout << "Return from subroutine to 0x" << std::hex << chip.pc << "\n";
+                    if (debug) std::cout << "Return from subroutine to 0x" << std::hex << chip.pc << "\n";
                     break;
                 }
                 default: {
@@ -150,7 +156,7 @@ void emulateCycle(Chip8 &chip) {
         break;
         case 0x1000:
             chip.pc = opcode & 0x0FFF; // Jump to address NNN
-            std::cout << "Jump to address: " << std::hex << chip.pc << std::endl;
+            if (debug) std::cout << "Jump to address: " << std::hex << chip.pc << std::endl;
         break;
         case 0x2000:
             // 2NNN: Call subroutine at NNN
@@ -159,7 +165,7 @@ void emulateCycle(Chip8 &chip) {
             chip.stack[chip.sp] = chip.pc; // Store current PC in the stack
             chip.sp++; // Increment stack pointer
             chip.pc = address; // Set PC to the address
-            std::cout << "Call subroutine at address: " << std::hex << address << std::endl;
+            if (debug) std::cout << "Call subroutine at address: " << std::hex << address << std::endl;
         }
         break;
         case 0x3000:
@@ -167,12 +173,12 @@ void emulateCycle(Chip8 &chip) {
         {
             uint8_t x = (opcode & 0x0F00) >> 8;
             uint8_t nn = opcode & 0x00FF;
-            std::cout << "3XNN: Checking if V[" << (int)x << "] == " << (int)nn << " (V[" << (int)x << "] = " << (int)chip.V[x] << ")\n";
+            if (debug) std::cout << "3XNN: Checking if V[" << (int)x << "] == " << (int)nn << " (V[" << (int)x << "] = " << (int)chip.V[x] << ")\n";
             if (chip.V[x] == nn) {
-                std::cout << "Condition true: skipping next instruction.\n";
+                if (debug) std::cout << "Condition true: skipping next instruction.\n";
                 chip.pc += 4;
             } else {
-                std::cout << "Condition false: proceeding to next instruction.\n";
+                if (debug) std::cout << "Condition false: proceeding to next instruction.\n";
                 chip.pc += 2;
             }
         }
@@ -182,12 +188,12 @@ void emulateCycle(Chip8 &chip) {
         {
             uint8_t x = (opcode & 0x0F00) >> 8;
             uint8_t nn = opcode & 0x00FF;
-            std::cout << "4XNN: Checking if V[" << (int)x << "] != " << (int)nn << " (V[" << (int)x << "] = " << (int)chip.V[x] << ")\n";
+            if (debug) std::cout << "4XNN: Checking if V[" << (int)x << "] != " << (int)nn << " (V[" << (int)x << "] = " << (int)chip.V[x] << ")\n";
             if (chip.V[x] != nn) {
-                std::cout << "Condition true: skipping next instruction.\n";
+                if (debug) std::cout << "Condition true: skipping next instruction.\n";
                 chip.pc += 4;
             } else {
-                std::cout << "Condition false: proceeding to next instruction.\n";
+                if (debug) std::cout << "Condition false: proceeding to next instruction.\n";
                 chip.pc += 2;
             }
         }
@@ -197,7 +203,7 @@ void emulateCycle(Chip8 &chip) {
                 if ((opcode & 0x000F) == 0x0000) {
                     uint8_t x = (opcode & 0x0F00) >> 8;
                     uint8_t y = (opcode & 0x00F0) >> 4;
-                    std::cout << "5XY0: Checking if V[" << (int)x << "] == V[" << (int)y << "] ("
+                    if (debug) std::cout << "5XY0: Checking if V[" << (int)x << "] == V[" << (int)y << "] ("
                               << (int)chip.V[x] << " == " << (int)chip.V[y] << ")" << std::endl;
 
                     if (chip.V[x] == chip.V[y]) {
@@ -218,7 +224,7 @@ void emulateCycle(Chip8 &chip) {
             chip.V[x] = nn;
             chip.pc += 2;
         }
-        std::cout << "Set V" << (int)((opcode & 0x0F00) >> 8) << " = " << (int)(opcode & 0x00FF) << std::endl;
+        if (debug) std::cout << "Set V" << (int)((opcode & 0x0F00) >> 8) << " = " << (int)(opcode & 0x00FF) << std::endl;
         break;
         case 0x7000:
             // 7XNN: Add NN to Vx
@@ -228,7 +234,7 @@ void emulateCycle(Chip8 &chip) {
             chip.V[x] += nn;
             chip.pc += 2;
         }
-        std::cout << "Add " << (int)(opcode & 0x00FF) << " to V" << (int)((opcode & 0x0F00) >> 8) << std::endl;
+        if (debug) std::cout << "Add " << (int)(opcode & 0x00FF) << " to V" << (int)((opcode & 0x0F00) >> 8) << std::endl;
         break;
         case 0x8000: {
             //all 0x8000 opcodes share the same X,Y
@@ -239,28 +245,28 @@ void emulateCycle(Chip8 &chip) {
                     //8XY0	LD VX, VY Copy the value in register VY into VX
                     chip.V[x] = chip.V[y];
                     chip.pc += 2;
-                    std::cout << "Set V[" << (int)x << "] = V[" << (int)y << "] (" << (int)chip.V[y] << ")\n";
+                    if (debug) std::cout << "Set V[" << (int)x << "] = V[" << (int)y << "] (" << (int)chip.V[y] << ")\n";
                     break;
                 }
                 // 8XY1 - Sets VX to (VX OR VY).
                 case 0x1: {
                     chip.V[x] |= chip.V[y];
                     chip.pc += 2;
-                    std::cout << "Set V[" << (int)x << "] (OR)|= V[" << (int)y << "] (" << (int)chip.V[y] << ")\n";
+                    if (debug) std::cout << "Set V[" << (int)x << "] (OR)|= V[" << (int)y << "] (" << (int)chip.V[y] << ")\n";
                 }
                 break;
                 // Set VX equal to the bitwise and of the values in VX and VY.
                 case 0x2: {
                     chip.V[x] = chip.V[x] & chip.V[y];
                     chip.pc += 2;
-                    std::cout <<"Set V[" << (int)x << "] &= V[" << (int)y << "] (" << (int)chip.V[y] << ")\n";
+                    if (debug) std::cout <<"Set V[" << (int)x << "] &= V[" << (int)y << "] (" << (int)chip.V[y] << ")\n";
                 }
                 break;
                 // Set VX equal to the bitwise xor of the values in VX and VY
                 case 0x3: {
                     chip.V[x] = chip.V[x] ^ chip.V[y];
                     chip.pc += 2;
-                    std::cout <<"Set V[" << (int)x << "] (XOR)^= V[" << (int)y << "] (" << (int)chip.V[y] << ")\n";
+                    if (debug) std::cout <<"Set V[" << (int)x << "] (XOR)^= V[" << (int)y << "] (" << (int)chip.V[y] << ")\n";
                 }
                 // Set VX equal to VX plus VY. In the case of an overflow(carry) VF is set to 1. Otherwise 0.
                 case 0x4: {
@@ -272,7 +278,7 @@ void emulateCycle(Chip8 &chip) {
                     }
                     chip.pc += 2;
                 }
-                    std::cout << "Set V[" << (int) x << "] += V[" << (int) y << "] (" << (int) chip.V[y] <<
+                    if (debug) std::cout << "Set V[" << (int) x << "] += V[" << (int) y << "] (" << (int) chip.V[y] <<
                             "), with carry\n";
                 break;
                 // Set VX equal to VX minus VY. In the case of an underflow VF is set 0. Otherwise 1. (VF = VX > VY)
@@ -280,14 +286,14 @@ void emulateCycle(Chip8 &chip) {
                     chip.V[0xF] = (chip.V[x] >= chip.V[y]) ? 1 : 0;
                     chip.V[x] = (chip.V[x] - chip.V[y]) & 0xFF;
                     chip.pc += 2;
-                    std::cout << "Set V[" << (int)x << "] -= V[" << (int)y << "] (" << (int)chip.V[y] << "), with borrow flag\n";
+                    if (debug) std::cout << "Set V[" << (int)x << "] -= V[" << (int)y << "] (" << (int)chip.V[y] << "), with borrow flag\n";
                 }
                 //Set VX equal to VX bitshifted right 1. VF is set to the least significant bit of VX prior to the shift.
                 case 0x6: {
                     chip.V[0xF] = chip.V[x] & 0x1;
                     chip.V[x] = chip.V[x] >> 1;
                     chip.pc += 2;
-                    std::cout << "Shift V[" << (int)x << "] right by 1. VF = " << (int)chip.V[0xF] << "\n";
+                    if (debug) std::cout << "Shift V[" << (int)x << "] right by 1. VF = " << (int)chip.V[0xF] << "\n";
                 }
                 break;
                 //Set VX equal to VY minus VX. VF is set to 1 if VY > VX. Otherwise 0.
@@ -295,7 +301,7 @@ void emulateCycle(Chip8 &chip) {
                     chip.V[0xF] = chip.V[y] > chip.V[x] ? 1 : 0;
                     chip.V[x] = chip.V[y] - chip.V[x] & 0xFF;
                     chip.pc += 2;
-                    std::cout << "Set V[" << (int)x << "] = V[" << (int)y << "] - V[" << (int)x << "] ("
+                    if (debug) std::cout << "Set V[" << (int)x << "] = V[" << (int)y << "] - V[" << (int)x << "] ("
                             << (int) chip.V[y] << " - " << (int) chip.V[x] << "), VF = "
                             << (int) chip.V[0xF] << "\n";
                 }
@@ -306,7 +312,7 @@ void emulateCycle(Chip8 &chip) {
                     chip.V[0xF] = mostSignificantBit;
                     chip.V[x] = (chip.V[x] << 1) & 0xFF;
                     chip.pc += 2;
-                    std::cout << "Shift V[" << (int)x << "] left by 1. VF = " << (int)chip.V[0xF] << "\n";
+                    if (debug) std::cout << "Shift V[" << (int)x << "] left by 1. VF = " << (int)chip.V[0xF] << "\n";
                 }
                 break;
                 default:
@@ -321,7 +327,7 @@ void emulateCycle(Chip8 &chip) {
             if ((opcode & 0x000F) == 0x0000) {
                 uint8_t x = (opcode & 0x0F00) >> 8;
                 uint8_t y = (opcode & 0x00F0) >> 4;
-                std::cout << "9XY0: Checking if V[" << (int) x << "] != V[" << (int) y << "] ("
+                if (debug) std::cout << "9XY0: Checking if V[" << (int) x << "] != V[" << (int) y << "] ("
                         << (int) chip.V[x] << " != " << (int) chip.V[y] << ")" << std::endl;
                 if (chip.V[x] != chip.V[y]) {
                     chip.pc += 4;
@@ -337,12 +343,12 @@ void emulateCycle(Chip8 &chip) {
         case 0xA000:
             chip.I = opcode & 0x0FFF;
             chip.pc += 2;
-            std::cout << "Set I = " << std::hex << chip.I << std::endl;
+            if (debug) std::cout << "Set I = " << std::hex << chip.I << std::endl;
             break;
         // Set the PC to NNN plus the value in V0.
         case 0xB000:
             chip.pc = opcode & 0x0FFF + chip.V[0];
-            std::cout << "Set PC= " << std::hex << chip.pc << std::endl;
+            if (debug) std::cout << "Set PC= " << std::hex << chip.pc << std::endl;
             break;
         // Set VX equal to a random number ranging from 0 to 255 which is logically anded with NN.
         case 0xC000: {
@@ -351,13 +357,9 @@ void emulateCycle(Chip8 &chip) {
             uint8_t rnd = rand() % 256;
             chip.V[x] = rnd & nn;
             chip.pc += 2;
-            std::cout << "Set V[" << (int)x << "] = rand() & 0x"
+            if (debug) std::cout << "Set V[" << (int)x << "] = rand() & 0x"
                       << std::hex << (int)nn << " => " << std::dec
                       << (int)chip.V[x] << "\n";
-            break;
-
-            std::cout << "Set V[" << (int)x << "] = rand() & 0x" << std::hex
-                      << (opcode & 0x00FF) << " => " << std::dec << (int)chip.V[x] << "\n";
         }
         break;
         case 0xD000:
@@ -396,7 +398,7 @@ void emulateCycle(Chip8 &chip) {
             chip.drawFlag = true;
             chip.pc += 2;
         }
-        std::cout << "Draw sprite at (" << (int)chip.V[(opcode & 0x0F00) >> 8] << ", " << (int)chip.V[(opcode & 0x00F0) >> 4] << ")" << std::endl;
+        if (debug) std::cout << "Draw sprite at (" << (int)chip.V[(opcode & 0x0F00) >> 8] << ", " << (int)chip.V[(opcode & 0x00F0) >> 4] << ")" << std::endl;
         break;
         case 0xE000:
             // EX9E: Skip next instruction if key with value of Vx is pressed
@@ -409,8 +411,8 @@ void emulateCycle(Chip8 &chip) {
                 chip.pc += 2;
             }
         }
-        std::cout << "Skip next instruction if key with value of V" << (int)((opcode & 0x0F00) >> 8) << " is pressed" << std::endl;
-        std::cout << "VX value: " << (int)chip.V[(opcode & 0x0F00) >> 8] << std::endl;
+        if (debug) std::cout << "Skip next instruction if key with value of V" << (int)((opcode & 0x0F00) >> 8) << " is pressed" << std::endl;
+        if (debug) std::cout << "VX value: " << (int)chip.V[(opcode & 0x0F00) >> 8] << std::endl;
         break;
         case 0xF000: {
             uint8_t x = (opcode & 0x0F00) >> 8;
@@ -419,7 +421,7 @@ void emulateCycle(Chip8 &chip) {
                 case 0x07: {
                     chip.V[x] = chip.delay_timer;
                     chip.pc += 2;
-                    std::cout << "Set V[" << (int)x << "] = delay_timer (" << (int)chip.delay_timer << ")\n";
+                    if (debug) std::cout << "Set V[" << (int)x << "] = delay_timer (" << (int)chip.delay_timer << ")\n";
                 }
                 break;
                 // FX18: Set sound timer = Vx
@@ -427,14 +429,22 @@ void emulateCycle(Chip8 &chip) {
                 {
                     chip.sound_timer = chip.V[x];
                     chip.pc += 2;
-                    std::cout << "Set sound timer = V" << (int)x << std::endl;
+                    if (debug) std::cout << "Set sound timer = V" << (int)x << std::endl;
                 }
                 break;
                 // FX15 set delay timer = Vx
                 case 0x0015: {
                     chip.delay_timer = chip.V[x];
                     chip.pc += 2;
-                    std::cout << "Set delay timer = V" << (int)x << std::endl;
+                    if (debug) std::cout << "Set delay timer = V" << (int)x << std::endl;
+                }
+                break;
+                // Set I to the address of the CHIP-8 8x5 font sprite representing the value in VX.
+                case 0x0029: { // Fx29
+                    chip.I = chip.V[x] * 5; // assuming font sprites start at address 0
+                    chip.pc += 2;
+                    if (debug) std::cout << "Set I to sprite address for character in V[" << std::dec << (int)x << "] = "
+                              << std::hex << (int)chip.V[x] << ", I = " << chip.I << "\n";
                 }
                 break;
                 // Convert that word to BCD and store the 3 digits at memory location I through I+2. I does not change.
@@ -445,7 +455,7 @@ void emulateCycle(Chip8 &chip) {
                     chip.memory[chip.I + 2] = value % 10;
                     chip.pc += 2;
 
-                    std::cout << "Stored BCD of V[" << (int)x << "] (" << (int)value
+                    if (debug) std::cout << "Stored BCD of V[" << (int)x << "] (" << (int)value
                               << ") into memory at I, I+1, and I+2\n";
                 }
                 break;
@@ -456,7 +466,7 @@ void emulateCycle(Chip8 &chip) {
                     }
                     chip.pc += 2;
 
-                    std::cout << "Stored V[0] to V[" << (int)x << "] into memory starting at I (0x"
+                    if (debug) std::cout << "Stored V[0] to V[" << (int)x << "] into memory starting at I (0x"
                               << std::hex << chip.I << ")\n";
                 }
                 break;
@@ -466,7 +476,7 @@ void emulateCycle(Chip8 &chip) {
                         chip.V[i] = chip.memory[chip.I + i];
                     }
                     chip.pc += 2;
-                    std::cout << "Read V[0] to V[" << (int) x << "] from memory starting at I (0x"
+                    if (debug) std::cout << "Read V[0] to V[" << (int) x << "] from memory starting at I (0x"
                             << std::hex << chip.I << ")\n";
                 }
                 break;
@@ -477,7 +487,7 @@ void emulateCycle(Chip8 &chip) {
                     chip.I = sum & 0x0FFF;
                     chip.pc += 2;
 
-                    std::cout << "Add V[" << (int)x << "] (" << (int)chip.V[x] << ") to I. VF = "
+                    if (debug) std::cout << "Add V[" << (int)x << "] (" << (int)chip.V[x] << ") to I. VF = "
                               << (int)chip.V[0xF] << ", New I = 0x" << std::hex << chip.I << "\n";
                 }
                 break;
@@ -545,7 +555,7 @@ int main(int argc, char* argv[]) {
     }
     Chip8 chip;
     chip.pc = 0x200; // Start of most CHIP-8 programs
-    loadROM("roms/3-corax+.ch8", chip); // Replace with your ROM path
+    loadROM("roms/games/Figures.ch8", chip); // Replace with your ROM path
     bool quit = false;
     SDL_Event e;
     uint32_t lastTimerUpdate = SDL_GetTicks();
@@ -583,7 +593,7 @@ int main(int argc, char* argv[]) {
         }
 
         SDL_Delay(10); // Fine-tune delay for control
-        std::cout << "======= end tick =======\n";
+        if (debug)std::cout << "======= end tick =======\n";
     }
 
     SDL_DestroyWindow(win);
